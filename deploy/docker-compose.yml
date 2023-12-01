@@ -1,0 +1,58 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
+      target: prod
+    image: trade_card_explorer_service:${TRADE_CARD_EXPLORER_SERVICE_VERSION:-latest}
+    restart: always
+    env_file:
+    - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TRADE_CARD_EXPLORER_SERVICE_HOST: 0.0.0.0
+      TRADE_CARD_EXPLORER_SERVICE_DB_HOST: trade_card_explorer_service-db
+      TRADE_CARD_EXPLORER_SERVICE_DB_PORT: 5432
+      TRADE_CARD_EXPLORER_SERVICE_DB_USER: trade_card_explorer_service
+      TRADE_CARD_EXPLORER_SERVICE_DB_PASS: trade_card_explorer_service
+      TRADE_CARD_EXPLORER_SERVICE_DB_BASE: trade_card_explorer_service
+
+  db:
+    image: postgres:13.8-bullseye
+    hostname: trade_card_explorer_service-db
+    environment:
+      POSTGRES_PASSWORD: "trade_card_explorer_service"
+      POSTGRES_USER: "trade_card_explorer_service"
+      POSTGRES_DB: "trade_card_explorer_service"
+    volumes:
+    - trade_card_explorer_service-db-data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: pg_isready -U trade_card_explorer_service
+      interval: 2s
+      timeout: 3s
+      retries: 40
+
+  migrator:
+    image: trade_card_explorer_service:${TRADE_CARD_EXPLORER_SERVICE_VERSION:-latest}
+    restart: "no"
+    command: alembic upgrade head
+    environment:
+      TRADE_CARD_EXPLORER_SERVICE_DB_HOST: trade_card_explorer_service-db
+      TRADE_CARD_EXPLORER_SERVICE_DB_PORT: 5432
+      TRADE_CARD_EXPLORER_SERVICE_DB_USER: trade_card_explorer_service
+      TRADE_CARD_EXPLORER_SERVICE_DB_PASS: trade_card_explorer_service
+      TRADE_CARD_EXPLORER_SERVICE_DB_BASE: trade_card_explorer_service
+    depends_on:
+      db:
+        condition: service_healthy
+
+
+
+volumes:
+  trade_card_explorer_service-db-data:
+    name: trade_card_explorer_service-db-data
